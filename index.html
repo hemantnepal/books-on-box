@@ -2,157 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Books on Box - Library Branch</title>
+  <title>Library Borrow/Return</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #eaf6ea;
-      margin: 0;
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: auto;
       padding: 1rem;
-      color: #2e5939;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
-    h1 {
-      color: #3b873e;
-      margin-bottom: 0.1rem;
-    }
-    p.welcome-text {
-      margin-top: 0;
-      margin-bottom: 1.5rem;
-      font-size: 1.1rem;
-    }
-    label {
-      font-weight: bold;
+    h2 { color: #3b873e; }
+    label { display: block; margin-top: 1rem; }
+    button { background-color: #3b873e; color: white; padding: 0.5rem 1rem; border: none; cursor: pointer; margin-top: 1rem; }
+    button:hover { background-color: #2f6f30; }
+    .scanner {
+      width: 100%;
       margin-top: 1rem;
-      display: block;
     }
-    select, input[type=text] {
-      width: 100%;
-      max-width: 300px;
-      padding: 0.5rem;
-      margin-top: 0.3rem;
-      border-radius: 5px;
-      border: 1px solid #3b873e;
-      font-size: 1rem;
-    }
-    button {
-      margin-top: 1.5rem;
-      background-color: #3b873e;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      padding: 0.7rem 1.5rem;
-      font-size: 1.1rem;
-      cursor: pointer;
-      width: 100%;
-      max-width: 320px;
-    }
-    button:disabled {
-      background-color: #a5c9a5;
-      cursor: not-allowed;
-    }
-    .status {
+    #result {
       margin-top: 1rem;
       font-weight: bold;
-    }
-    .scan-instruction {
-      margin-top: 0.2rem;
-      font-size: 0.9rem;
-      color: #557a3e;
     }
   </style>
 </head>
 <body>
+  <h2>Library Borrow/Return</h2>
 
-  <h1>Books on Box</h1>
-  <p class="welcome-text">Welcome! Scan your ID, choose action, select branch, then scan book QR and submit.</p>
+  <label>User ID Scan:</label>
+  <div id="userIdScanner" class="scanner"></div>
+  <input type="text" id="userIdInput" placeholder="User ID will appear here" readonly />
 
-  <label for="userId">Scan User ID Barcode</label>
-  <input type="text" id="userId" placeholder="Scan or enter user ID" autocomplete="off" autofocus />
+  <label>Book ID Scan:</label>
+  <div id="bookIdScanner" class="scanner"></div>
+  <input type="text" id="bookIdInput" placeholder="Book ID will appear here" readonly />
 
-  <label for="action">Choose Action</label>
+  <label>Action:</label>
   <select id="action">
-    <option value="">-- Select --</option>
     <option value="borrow">Borrow</option>
     <option value="return">Return</option>
   </select>
 
-  <label for="branch">Select Library Branch</label>
+  <label>Branch:</label>
   <select id="branch">
-    <option value="">-- Select Branch --</option>
-    <option value="Branch A">Branch A</option>
-    <option value="Branch B">Branch B</option>
-    <option value="Branch C">Branch C</option>
+    <option value="Main Branch">Main Branch</option>
+    <option value="Branch 2">Branch 2</option>
+    <option value="Branch 3">Branch 3</option>
   </select>
 
-  <label for="bookId">Scan Book QR Code</label>
-  <input type="text" id="bookId" placeholder="Scan or enter book ID" autocomplete="off" />
+  <button onclick="submitTransaction()">Submit</button>
 
-  <button id="submitBtn" disabled>Submit</button>
-
-  <div class="status" id="status"></div>
+  <div id="result"></div>
 
   <script>
-    const userIdInput = document.getElementById('userId');
-    const actionSelect = document.getElementById('action');
-    const branchSelect = document.getElementById('branch');
-    const bookIdInput = document.getElementById('bookId');
-    const submitBtn = document.getElementById('submitBtn');
-    const statusDiv = document.getElementById('status');
-
-    function validateForm() {
-      submitBtn.disabled = !(
-        userIdInput.value.trim() &&
-        actionSelect.value &&
-        branchSelect.value &&
-        bookIdInput.value.trim()
-      );
+    // Initialize scanners
+    function onScanSuccessUser(decodedText) {
+      document.getElementById('userIdInput').value = decodedText;
+      html5QrcodeScannerUser.clear(); // stop scanner after successful scan
     }
 
-    userIdInput.addEventListener('input', validateForm);
-    actionSelect.addEventListener('change', validateForm);
-    branchSelect.addEventListener('change', validateForm);
-    bookIdInput.addEventListener('input', validateForm);
+    function onScanSuccessBook(decodedText) {
+      document.getElementById('bookIdInput').value = decodedText;
+      html5QrcodeScannerBook.clear();
+    }
 
-    submitBtn.addEventListener('click', () => {
-      const data = {
-        userId: userIdInput.value.trim(),
-        action: actionSelect.value,
-        branch: branchSelect.value,
-        bookId: bookIdInput.value.trim()
-      };
+    const html5QrcodeScannerUser = new Html5QrcodeScanner(
+      "userIdScanner", { fps: 10, qrbox: 250 });
+    html5QrcodeScannerUser.render(onScanSuccessUser);
 
-      submitBtn.disabled = true;
-      statusDiv.textContent = 'Submitting...';
+    const html5QrcodeScannerBook = new Html5QrcodeScanner(
+      "bookIdScanner", { fps: 10, qrbox: 250 });
+    html5QrcodeScannerBook.render(onScanSuccessBook);
 
-      fetch('https://script.google.com/macros/s/AKfycbzsxID0oWjlm-oePXOfnEJJx_HblaoPYsCspNnaiYGAF0yDogO8P0e6LCXNfgogJpgq/exec', {
+    function submitTransaction() {
+      const userId = document.getElementById('userIdInput').value.trim();
+      const bookId = document.getElementById('bookIdInput').value.trim();
+      const action = document.getElementById('action').value;
+      const branch = document.getElementById('branch').value;
+
+      if (!userId || !bookId) {
+        alert('Please scan both User ID and Book ID');
+        return;
+      }
+
+      const apiUrl = https://script.google.com/u/0/home/projects/1eKLLZLPGEv4hyk2ROHmqHhYXXnrBV1zSaE30KeYMBWOUlddsb9Z_63c3/edit ;
+
+      fetch(apiUrl + `?userId=${encodeURIComponent(userId)}&bookId=${encodeURIComponent(bookId)}&action=${encodeURIComponent(action)}&branch=${encodeURIComponent(branch)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
       })
       .then(response => response.json())
-      .then(result => {
-        if(result.status === 'success') {
-          statusDiv.textContent = 'Success! Transaction recorded.';
-          // Clear bookId & action for next
-          bookIdInput.value = '';
-          actionSelect.value = '';
-          validateForm();
-          bookIdInput.focus();
-        } else {
-          statusDiv.textContent = 'Failed to record transaction. Try again.';
+      .then(data => {
+        document.getElementById('result').innerText = data.message;
+        if (data.status === 'success') {
+          // Clear inputs and restart scanners
+          document.getElementById('userIdInput').value = '';
+          document.getElementById('bookIdInput').value = '';
+          html5QrcodeScannerUser.render(onScanSuccessUser);
+          html5QrcodeScannerBook.render(onScanSuccessBook);
         }
       })
-      .catch(() => {
-        statusDiv.textContent = 'Error submitting data. Check your connection.';
-      })
-      .finally(() => {
-        submitBtn.disabled = false;
+      .catch(err => {
+        document.getElementById('result').innerText = 'Error: ' + err.message;
       });
-    });
+    }
   </script>
 </body>
 </html>
