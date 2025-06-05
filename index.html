@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Books on Box</title>
   <style>
     body {
-      margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f0fdf4;
+      margin: 0;
+      background: #f0fdf4;
       color: #333;
     }
     header {
@@ -19,45 +19,40 @@
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     main {
-      padding: 2rem;
+      padding: 1rem;
       max-width: 600px;
       margin: auto;
     }
     button {
       background-color: #2f855a;
       color: white;
-      padding: 0.7rem 1.2rem;
+      padding: 0.6rem 1rem;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      margin-top: 1rem;
-      margin-right: 0.5rem;
+      margin: 0.5rem 0.3rem;
     }
     button:hover {
       background-color: #276749;
     }
-    .scanner-section {
-      margin-top: 2rem;
+    .scanner-box {
+      background: white;
       padding: 1rem;
-      background: #ffffff;
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    #preview {
+    #reader {
       width: 100%;
-      height: 300px;
-      border-radius: 5px;
+      max-height: 400px;
       margin-top: 1rem;
     }
-    .toggle {
-      display: flex;
-      justify-content: center;
-      margin-top: 1rem;
+    .mode {
+      text-align: center;
+      margin-bottom: 0.5rem;
     }
     @media (max-width: 600px) {
-      main {
-        padding: 1rem;
-      }
+      main { padding: 1rem; }
+      button { width: 48%; }
     }
   </style>
 </head>
@@ -68,68 +63,87 @@
   </header>
 
   <main>
-    <section class="scanner-section">
-      <h2>Scan Barcode</h2>
-      <p>Scan User ID or Book Code below:</p>
-      <div class="toggle">
+    <div class="scanner-box">
+      <h2>Scan Book or ID</h2>
+      <div class="mode">
         <button onclick="setMode('borrow')">Borrow</button>
         <button onclick="setMode('return')">Return</button>
+        <p>Current Mode: <strong id="modeDisplay">borrow</strong></p>
       </div>
-      <p>Mode: <span id="modeDisplay">borrow</span></p>
-      <div id="preview"></div>
-      <button onclick="startScanner()">Start Scanning</button>
+
+      <div id="reader"></div>
+      <button onclick="startScanner()">Start Scanner</button>
       <p id="scannedResult"></p>
-    </section>
+    </div>
   </main>
 
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
     let scanner;
-    let mode = 'borrow';
     let scannedUser = null;
     let scannedBook = null;
+    let mode = 'borrow';
 
     function setMode(selectedMode) {
       mode = selectedMode;
       document.getElementById('modeDisplay').textContent = selectedMode;
+      scannedUser = null;
+      scannedBook = null;
+      document.getElementById("scannedResult").innerText = "Please scan user ID.";
     }
 
     function startScanner() {
-      const resultElem = document.getElementById('scannedResult');
-      resultElem.innerText = "Requesting camera...";
+      const resultElem = document.getElementById("scannedResult");
+      const reader = document.getElementById("reader");
 
-      scanner = new Html5Qrcode("preview");
-      const config = { fps: 10, qrbox: 250 };
+      if (scanner) {
+        scanner.clear().then(() => {
+          scanner = null;
+          reader.innerHTML = "";
+        });
+      }
 
+      scanner = new Html5Qrcode("reader");
       scanner.start(
         { facingMode: "environment" },
-        config,
-        qrCodeMessage => {
-          if (!scannedUser) {
-            scannedUser = qrCodeMessage;
-            resultElem.innerText = `User ID: ${qrCodeMessage} scanned. Now scan Book.`;
-          } else {
-            scannedBook = qrCodeMessage;
-            resultElem.innerText = `Book ID: ${qrCodeMessage} scanned. Processing...`;
-            scanner.stop();
-            sendToGoogleAppsScript(scannedUser, scannedBook, mode);
-          }
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
         },
-        errorMessage => {
-          // Optionally handle scan errors
-        }
+        (decodedText) => {
+          handleScans(decodedText);
+        },
+        (errorMessage) => {}
       ).catch(err => {
-        resultElem.innerText = `Camera error: ${err}`;
+        resultElem.innerText = `Camera Error: ${err}`;
       });
+
+      resultElem.innerText = "Please scan user ID.";
+    }
+
+    function handleScans(qrCodeMessage) {
+      const resultElem = document.getElementById("scannedResult");
+
+      if (!scannedUser) {
+        scannedUser = qrCodeMessage;
+        resultElem.innerText = `User ID scanned: ${qrCodeMessage}. Now scan the book.`;
+      } else if (!scannedBook) {
+        scannedBook = qrCodeMessage;
+        resultElem.innerText = `Book ID scanned: ${qrCodeMessage}. Sending to server...`;
+        scanner.stop().then(() => {
+          sendToGoogleAppsScript(scannedUser, scannedBook, mode);
+        });
+      }
     }
 
     function sendToGoogleAppsScript(userId, bookId, mode) {
-      const resultElem = document.getElementById('scannedResult');
       const url = `https://script.google.com/macros/s/1eKLLZLPGEv4hyk2ROHmqHhYXXnrBV1zSaE30KeYMBWOUlddsb9Z_63c3/exec?user=${userId}&book=${bookId}&mode=${mode}`;
+      const resultElem = document.getElementById("scannedResult");
+
       fetch(url)
-        .then(response => response.text())
-        .then(data => {
-          resultElem.innerText = `Server response: ${data}`;
+        .then(res => res.text())
+        .then(text => {
+          resultElem.innerText = `Server: ${text}`;
           scannedUser = null;
           scannedBook = null;
         })
