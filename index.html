@@ -31,17 +31,10 @@
       border-radius: 5px;
       cursor: pointer;
       margin-top: 1rem;
+      margin-right: 0.5rem;
     }
     button:hover {
       background-color: #276749;
-    }
-    input[type="text"], select {
-      padding: 0.6rem;
-      width: calc(100% - 1rem);
-      margin-top: 0.5rem;
-      margin-bottom: 1rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
     }
     .scanner-section {
       margin-top: 2rem;
@@ -50,10 +43,15 @@
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    video {
+    #preview {
       width: 100%;
-      height: auto;
+      height: 300px;
       border-radius: 5px;
+      margin-top: 1rem;
+    }
+    .toggle {
+      display: flex;
+      justify-content: center;
       margin-top: 1rem;
     }
     @media (max-width: 600px) {
@@ -72,13 +70,13 @@
   <main>
     <section class="scanner-section">
       <h2>Scan Barcode</h2>
-      <p>Select Mode:</p>
-      <select id="mode">
-        <option value="borrow">Borrow</option>
-        <option value="return">Return</option>
-      </select>
-      <p>Scan User ID and then Book Code below:</p>
-      <video id="preview"></video>
+      <p>Scan User ID or Book Code below:</p>
+      <div class="toggle">
+        <button onclick="setMode('borrow')">Borrow</button>
+        <button onclick="setMode('return')">Return</button>
+      </div>
+      <p>Mode: <span id="modeDisplay">borrow</span></p>
+      <div id="preview"></div>
       <button onclick="startScanner()">Start Scanning</button>
       <p id="scannedResult"></p>
     </section>
@@ -87,13 +85,18 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <script>
     let scanner;
+    let mode = 'borrow';
     let scannedUser = null;
     let scannedBook = null;
 
-    async function startScanner() {
+    function setMode(selectedMode) {
+      mode = selectedMode;
+      document.getElementById('modeDisplay').textContent = selectedMode;
+    }
+
+    function startScanner() {
       const resultElem = document.getElementById('scannedResult');
-      const mode = document.getElementById('mode').value;
-      resultElem.innerText = "Scanning...";
+      resultElem.innerText = "Requesting camera...";
 
       scanner = new Html5Qrcode("preview");
       const config = { fps: 10, qrbox: 250 };
@@ -101,39 +104,38 @@
       scanner.start(
         { facingMode: "environment" },
         config,
-        async qrCodeMessage => {
+        qrCodeMessage => {
           if (!scannedUser) {
             scannedUser = qrCodeMessage;
-            resultElem.innerText = `User ID: ${scannedUser} scanned. Now scan Book Code.`;
-          } else if (!scannedBook) {
+            resultElem.innerText = `User ID: ${qrCodeMessage} scanned. Now scan Book.`;
+          } else {
             scannedBook = qrCodeMessage;
-            resultElem.innerText = `Book ID: ${scannedBook} scanned. Sending to server...`;
-
-            // Send data to Google Apps Script endpoint
-            const response = await fetch("https://script.google.com/u/0/home/projects/1eKLLZLPGEv4hyk2ROHmqHhYXXnrBV1zSaE30KeYMBWOUlddsb9Z_63c3/edit", {
-              method: "POST",
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                user_id: scannedUser,
-                book_id: scannedBook,
-                action: mode
-              })
-            });
-            const result = await response.text();
-            resultElem.innerText = result;
+            resultElem.innerText = `Book ID: ${qrCodeMessage} scanned. Processing...`;
             scanner.stop();
-            scannedUser = null;
-            scannedBook = null;
+            sendToGoogleAppsScript(scannedUser, scannedBook, mode);
           }
         },
         errorMessage => {
-          // Handle error
+          // Optionally handle scan errors
         }
       ).catch(err => {
         resultElem.innerText = `Camera error: ${err}`;
       });
+    }
+
+    function sendToGoogleAppsScript(userId, bookId, mode) {
+      const resultElem = document.getElementById('scannedResult');
+      const url = `https://script.google.com/macros/s/1eKLLZLPGEv4hyk2ROHmqHhYXXnrBV1zSaE30KeYMBWOUlddsb9Z_63c3/exec?user=${userId}&book=${bookId}&mode=${mode}`;
+      fetch(url)
+        .then(response => response.text())
+        .then(data => {
+          resultElem.innerText = `Server response: ${data}`;
+          scannedUser = null;
+          scannedBook = null;
+        })
+        .catch(err => {
+          resultElem.innerText = `Error sending data: ${err}`;
+        });
     }
   </script>
 </body>
