@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Books on Box - Library Branch</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #eaf6ea;
+      margin: 0;
+      padding: 1rem;
+      color: #2e5939;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #3b873e;
+      margin-bottom: 0.1rem;
+    }
+    p.welcome-text {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 1rem;
+      display: block;
+    }
+    select, input[type=text] {
+      width: 100%;
+      max-width: 300px;
+      padding: 0.5rem;
+      margin-top: 0.3rem;
+      border-radius: 5px;
+      border: 1px solid #3b873e;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 1.5rem;
+      background-color: #3b873e;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      cursor: pointer;
+      width: 100%;
+      max-width: 320px;
+    }
+    button:disabled {
+      background-color: #a5c9a5;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    .scan-instruction {
+      margin-top: 0.2rem;
+      font-size: 0.9rem;
+      color: #557a3e;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Books on Box</h1>
+  <p class="welcome-text">Welcome! Scan your ID, choose action, select branch, then scan book QR and submit.</p>
+
+  <label for="userId">Scan User ID Barcode</label>
+  <input type="text" id="userId" placeholder="Scan or enter user ID" autocomplete="off" autofocus />
+
+  <label for="action">Choose Action</label>
+  <select id="action">
+    <option value="">-- Select --</option>
+    <option value="borrow">Borrow</option>
+    <option value="return">Return</option>
+  </select>
+
+  <label for="branch">Select Library Branch</label>
+  <select id="branch">
+    <option value="">-- Select Branch --</option>
+    <option value="Branch A">Branch A</option>
+    <option value="Branch B">Branch B</option>
+    <option value="Branch C">Branch C</option>
+  </select>
+
+  <label for="bookId">Scan Book QR Code</label>
+  <input type="text" id="bookId" placeholder="Scan or enter book ID" autocomplete="off" />
+
+  <button id="submitBtn" disabled>Submit</button>
+
+  <div class="status" id="status"></div>
+
+  <script>
+    const userIdInput = document.getElementById('userId');
+    const actionSelect = document.getElementById('action');
+    const branchSelect = document.getElementById('branch');
+    const bookIdInput = document.getElementById('bookId');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusDiv = document.getElementById('status');
+
+    function validateForm() {
+      submitBtn.disabled = !(
+        userIdInput.value.trim() &&
+        actionSelect.value &&
+        branchSelect.value &&
+        bookIdInput.value.trim()
+      );
+    }
+
+    userIdInput.addEventListener('input', validateForm);
+    actionSelect.addEventListener('change', validateForm);
+    branchSelect.addEventListener('change', validateForm);
+    bookIdInput.addEventListener('input', validateForm);
+
+    submitBtn.addEventListener('click', () => {
+      const data = {
+        userId: userIdInput.value.trim(),
+        action: actionSelect.value,
+        branch: branchSelect.value,
+        bookId: bookIdInput.value.trim()
+      };
+
+      submitBtn.disabled = true;
+      statusDiv.textContent = 'Submitting...';
+
+      fetch('https://script.google.com/macros/s/AKfycbzsxID0oWjlm-oePXOfnEJJx_HblaoPYsCspNnaiYGAF0yDogO8P0e6LCXNfgogJpgq/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        if(result.status === 'success') {
+          statusDiv.textContent = 'Success! Transaction recorded.';
+          // Clear bookId & action for next
+          bookIdInput.value = '';
+          actionSelect.value = '';
+          validateForm();
+          bookIdInput.focus();
+        } else {
+          statusDiv.textContent = 'Failed to record transaction. Try again.';
+        }
+      })
+      .catch(() => {
+        statusDiv.textContent = 'Error submitting data. Check your connection.';
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+      });
+    });
+  </script>
+</body>
+</html>
